@@ -1,0 +1,20 @@
+{
+  "settings_version": "0.0.6",
+  "datasets_dir": "C:\\Users\\adm_luca.goulart\\Desktop\\datasets",
+  "weights_dir": "C:\\Users\\adm_luca.goulart\\Desktop\\Usseewa\\weights",
+  "runs_dir": "C:\\Users\\adm_luca.goulart\\Desktop\\Usseewa\\runs",
+  "uuid": "97623550479c5ea18ee1cb792520103bc590eebcfcdb86e9e7225a578b02db5f",
+  "sync": true,
+  "api_key": "",
+  "openai_api_key": "",
+  "clearml": true,
+  "comet": true,
+  "dvc": true,
+  "hub": true,
+  "mlflow": true,
+  "neptune": true,
+  "raytune": true,
+  "tensorboard": true,
+  "wandb": true,
+  "vscode_msg": true
+}

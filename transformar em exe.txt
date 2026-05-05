@@ -1,0 +1,38 @@
+Sim, se o problema for seu PC/antivírus corporativo, criei planos alternativos no projeto.
+
+O erro atual confirma que o PyInstaller está sendo bloqueado no momento de mexer no .exe:
+
+EndUpdateResourceW
+Isso não é erro do Image Inspector em si. É o Windows/antivírus/EDR impedindo a criação final do executável.
+
+Adicionei estes arquivos:
+
+packaging/PLANOS_EMPACOTAMENTO.md
+packaging/build_portable.ps1
+packaging/requirements-client.txt
+O caminho mais prático agora é testar o Plano B, que não usa PyInstaller para criar .exe.
+
+Rode:
+
+cd "C:\Users\adm_luca.goulart\Desktop\Image_inspector"
+
+python -m venv venv_build
+.\venv_build\Scripts\Activate.ps1
+
+python -m pip install --upgrade pip setuptools wheel
+pip install -r .\packaging\requirements-client.txt
+
+powershell -ExecutionPolicy Bypass -File .\packaging\build_portable.ps1 -Clean
+Isso vai gerar:
+
+dist_portable\Image Inspector\
+Teste local:
+
+& ".\dist_portable\Image Inspector\Image Inspector.cmd"
+Para instalar no cliente:
+
+cd ".\dist_portable\Image Inspector"
+powershell -ExecutionPolicy Bypass -File .\install_portable_client.ps1
+Esse plano cria atalho clicável, mas evita o ponto onde o PyInstaller está sendo bloqueado.
+
+O melhor plano comercial depois é o Plano D: exportar os modelos para ONNX e remover torch/ultralytics do app cliente. Aí o executável fica muito menor e muito menos sensível a antivírus.

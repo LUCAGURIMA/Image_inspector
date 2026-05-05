@@ -1,0 +1,54 @@
+# Virtual Environment
+venv/
+venv_build/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# PyInstaller
+*.manifest
+dist_portable/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data and models
+data/inspections/*
+!data/inspections/.gitkeep
+models/inspection/*
+models/detection/*
+models/classification/*
+profiles/*
+!profiles/.gitkeep
+
+# OS
+Thumbs.db
+.DS_Store

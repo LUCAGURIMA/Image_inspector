@@ -1,0 +1,82 @@
+﻿from __future__ import annotations
+
+import csv
+import json
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import cv2
+
+from image_inspector.config import INSPECTIONS_DIR, REVIEW_LABELS
+from image_inspector.core.inspection import InspectionResult
+from image_inspector.core.runtime import jsonable
+
+log = logging.getLogger(__name__)
+
+
+class InspectionStorage:
+    def save_review(
+        self,
+        result: InspectionResult,
+        review_code: str,
+        operator_note: str = "",
+        context: dict[str, Any] | None = None,
+    ) -> Path:
+        if review_code not in REVIEW_LABELS:
+            raise ValueError(f"Revisao invalida: {review_code}")
+
+        now = datetime.now()
+        label = REVIEW_LABELS[review_code]
+        day_dir = INSPECTIONS_DIR / now.strftime("%Y-%m-%d")
+        session_dir = day_dir / label / f"{now:%H%M%S}_{result.inspection_id[:8]}"
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        original_path = session_dir / "original.jpg"
+        annotated_path = session_dir / "annotated.jpg"
+        metadata_path = session_dir / "metadata.json"
+
+        if not cv2.imwrite(str(original_path), result.original_image):
+            raise OSError(f"Falha ao salvar imagem original em {original_path}")
+        if not cv2.imwrite(str(annotated_path), result.annotated_image):
+            raise OSError(f"Falha ao salvar imagem anotada em {annotated_path}")
+
+        metadata = {
+            "inspection_id": result.inspection_id,
+            "timestamp": now.isoformat(timespec="seconds"),
+            "review": label,
+            "operator_note": operator_note,
+            "mode": result.mode,
+            "status": result.status,
+            "summary": result.summary,
+            "inference_ms": round(result.inference_ms, 3),
+            "context": jsonable(context or {}),
+            "payload": jsonable(result.payload),
+            "files": {"original": original_path.name, "annotated": annotated_path.name},
+        }
+        metadata_path.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._append_daily_index(day_dir, metadata, session_dir)
+        log.info("Revisao salva | id=%s | review=%s | path=%s", result.inspection_id, label, session_dir)
+        return session_dir
+
+    def _append_daily_index(self, day_dir: Path, metadata: dict[str, Any], session_dir: Path) -> None:
+        index_path = day_dir / "index.csv"
+        write_header = not index_path.exists()
+        row = {
+            "inspection_id": metadata["inspection_id"],
+            "timestamp": metadata["timestamp"],
+            "review": metadata["review"],
+            "mode": metadata["mode"],
+            "status": metadata["status"],
+            "inference_ms": metadata["inference_ms"],
+            "operator": metadata.get("context", {}).get("operator", ""),
+            "camera_serial": metadata.get("context", {}).get("camera", {}).get("serial", ""),
+            "profile": metadata.get("context", {}).get("profile", {}).get("name", ""),
+            "path": str(session_dir),
+        }
+        with index_path.open("a", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=list(row.keys()))
+            if write_header:
+                writer.writeheader()
+            writer.writerow(row)
