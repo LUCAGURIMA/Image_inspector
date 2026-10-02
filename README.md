@@ -1,20 +1,68 @@
-﻿# Image Inspector
+# Image Inspector
 
-Aplicativo desktop para inspecao visual operacional com cameras Basler e modelos YOLO.
+Aplicativo desktop para inspeção visual com câmeras Basler e modelos YOLO. A interface reúne operação, configuração da câmera e modelos, confirmação dos resultados e coleta manual de imagens para datasets.
 
-Este projeto e uma versao enxuta do toolkit USSEEWA, voltada para usuario final/cliente. O foco e operacao robusta, usabilidade e coleta organizada de dados para realimentar treinamentos futuros.
+## Abas do aplicativo
 
-## Fluxo Principal
+### Operação
 
-1. Conectar camera Basler.
-2. Selecionar perfil `.pfs`, quando necessario.
-3. Selecionar modelos `.pt`.
-4. Executar inspecao simples ou hibrida com um clique.
-5. Revisar o resultado visual.
-6. Salvar manualmente como `verdadeiro_positivo`, `verdadeiro_negativo`, `falso_positivo` ou `falso_negativo`.
-7. Usar a aba **Criar dataset** para capturar imagens rotuladas manualmente.
+1. Selecione uma ou mais categorias de inspeção. A mesma foto é analisada sequencialmente por cada modelo selecionado.
+2. Capture uma imagem pela câmera Basler ou reanalise a imagem atual.
+3. Confira o resultado e, quando houver mais de uma categoria, escolha qual imagem anotada visualizar.
+4. Confirme se o produto tem defeito ou está conforme. Em seguida, marque as categorias de defeito pertinentes e salve a revisão.
 
-## Estrutura
+As revisões são classificadas automaticamente como verdadeiro positivo, verdadeiro negativo, falso positivo ou falso negativo. As categorias informadas ficam nos metadados e nos nomes dos arquivos; cada foto original é guardada uma vez.
+
+### Configuração
+
+- Selecione e conecte uma câmera Basler.
+- Selecione o perfil `.pfs` da câmera.
+- Importe arquivos `.pt` ou selecione os modelos de inspeção, detecção e classificação.
+- Ajuste a confiança mínima quando necessário.
+
+Os modelos de inspeção aparecem como cartões com imagem de referência. É possível adicionar ou trocar a imagem de cada categoria. A seleção múltipla é usada pela aba Operação.
+
+### Criar dataset
+
+Esta aba reproduz o fluxo do coletor ABAPA dentro do Image Inspector. Ela usa a câmera e o perfil selecionados em Configuração, mostra a visualização ao vivo e permite capturar imagens manualmente, sem executar inferência.
+
+1. Informe o operador, se desejar.
+2. Toque em uma categoria para selecioná-la; a borda azul indica a seleção.
+3. Use **+ CATEGORIA** para criar uma categoria ou **REMOVER** para tirá-la da lista.
+4. Use **ADICIONAR / TROCAR IMAGEM** para escolher uma imagem de referência para a categoria selecionada.
+5. Toque em **TIRAR FOTO**. A imagem é salva na pasta da categoria com um arquivo JSON de metadados.
+6. Use **ENVIAR / EXPORTAR** para adicionar as imagens capturadas na sessão à fila de exportação.
+
+Remover uma categoria da lista não apaga sua pasta nem as imagens existentes. As categorias iniciais são `mancha`, `rasgo` e `contaminacao`; elas podem ser alteradas na própria aba. A imagem de referência é copiada para a pasta da categoria e o arquivo `<categoria>_example.txt` registra o caminho usado pelo cartão.
+
+## Dados e arquivos
+
+No Windows, modelos importados, perfis, imagens, configurações e logs ficam em `%LOCALAPPDATA%\Image Inspector\`. No Linux, a pasta padrão é `~/.local/share/Image Inspector/` (ou `$XDG_DATA_HOME/Image Inspector/`, se definida).
+
+```text
+Image Inspector/
+  models/
+    inspection/                 # modelos de inspeção importados e referências
+    detection/                  # modelos de detecção
+    classification/             # modelos de classificação
+  profiles/                     # perfis .pfs adicionados pelo usuário
+  config/runtime_settings.json  # modelos, câmera, operador e zoom do painel
+  data/
+    inspections/<data>/<classe>/# revisões manuais da aba Operação
+    dataset/
+      categories.json           # categorias e pastas do dataset
+      captures/<categoria>/     # imagens, referências e metadados JSON
+      export_queue.jsonl        # fila para sincronização externa
+  logs/
+```
+
+Uma captura do dataset segue o padrão `<categoria>_AAAAmmdd_HHMMSS_<serial>.jpg` e recebe um JSON com categoria, operador, serial e horário. Se já existir uma imagem com o mesmo nome, o aplicativo acrescenta frações de segundo para evitar sobrescrevê-la. A imagem de referência fica na pasta da categoria; o `.txt` ao lado aponta para ela.
+
+Uma revisão da aba Operação guarda a foto original, as imagens anotadas por categoria de modelo e `metadata.json`. As categorias de inspeção e as categorias do dataset têm configurações separadas para evitar misturar esses dados.
+
+`export_queue.jsonl` apenas registra os caminhos das capturas da sessão para que um sincronizador externo possa processá-las. O aplicativo não envia imagens pela rede.
+
+## Estrutura do código
 
 ```text
 image_inspector/
@@ -22,112 +70,55 @@ image_inspector/
   config.py
   core/
     basler_camera.py
-    yolo_models.py
+    dataset_collection.py
     inspection.py
+    runtime.py
     storage.py
+    yolo_models.py
   ui/
+    dataset_tab.py
     main_window.py
     threads.py
-models/
-  inspection/
-  detection/
-  classification/
-profiles/
-data/
-  inspections/
-logs/
-packaging/
-  image_inspector.spec
-  build_exe.ps1
-  install_client.ps1
 ```
 
 ## Executar em desenvolvimento
+
+Com o ambiente virtual e as dependências do projeto instalados:
 
 ```powershell
 venv\Scripts\python.exe -m image_inspector.app
 ```
 
-## Gerar executavel
+## Gerar o executável
 
-No computador de build:
+No computador de build, execute:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\packaging\build_exe.ps1 -Clean
 ```
 
-A saida sera criada em:
+A saída será criada em:
 
 ```text
 dist/Image Inspector/Image Inspector.exe
 ```
 
-As pastas `models`, `profiles`, `data` e `logs` ficam ao lado do executavel para permitir trocar `.pt` e `.pfs` sem recompilar.
-
 ## Instalar no computador do cliente
 
 1. Copie a pasta `dist` inteira para o computador do cliente.
-2. Abra PowerShell como Administrador dentro da pasta `dist`.
+2. Abra o PowerShell como Administrador dentro da pasta `dist`.
 3. Execute:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install_client.ps1
 ```
 
-O instalador copia o aplicativo para:
+O instalador copia o aplicativo para `C:\Program Files\Image Inspector` e cria atalhos na Área de Trabalho e no Menu Iniciar. A pasta de dados do usuário continua gravável sem privilégios de administrador.
 
-```text
-C:\Program Files\Image Inspector
-```
+## Modelos e perfis distribuídos
 
-E cria atalhos em:
-
-```text
-Area de Trabalho
-Menu Iniciar > Image Inspector
-```
-
-## Onde colocar modelos e perfis no cliente
-
-Os modelos `.pt` fornecidos com o pacote podem ficar ao lado do executavel. Modelos importados pelo aplicativo sao guardados na pasta de dados do usuario:
-
-```text
-%LOCALAPPDATA%\Image Inspector\models\inspection\       # .pt importados para inspecao
-%LOCALAPPDATA%\Image Inspector\models\detection\         # .pt de deteccao hibrida
-%LOCALAPPDATA%\Image Inspector\models\classification\    # .pt de classificacao hibrida
-%LOCALAPPDATA%\Image Inspector\profiles\                 # .pfs Basler adicionados pelo usuario
-```
-
-## Organizacao dos Dados
-
-Cada revisao manual cria uma pasta em:
-
-```text
-%LOCALAPPDATA%/Image Inspector/data/inspections/YYYY-MM-DD/<classe_de_revisao>/HHMMSS_microsegundos/
-```
-
-Dentro dela ficam a foto original, uma anotacao por categoria de modelo selecionada e `metadata.json`.
-Na tela de revisao, o operador informa se existe defeito; o aplicativo calcula automaticamente verdadeiro positivo, verdadeiro negativo, falso positivo ou falso negativo a partir do resultado dos modelos.
-
-No Windows, imagens, configuracoes e logs ficam em `%LOCALAPPDATA%\Image Inspector\`, uma pasta gravavel pelo usuario mesmo quando o aplicativo esta instalado em `C:\Program Files`.
-Modelos e perfis distribuidos ao lado do executavel continuam disponiveis como leitura. A categoria confirmada e registrada nos nomes dos arquivos, no `metadata.json` e no indice diario; a foto e guardada uma unica vez.
-As imagens de referencia ficam em `%LOCALAPPDATA%\Image Inspector\models\inspection\<categoria>\reference.png`.
-
-Na aba **Criar dataset**, o operador seleciona uma categoria, acompanha a câmera ao vivo e captura imagens rotuladas sem executar inferência. Categorias, referências, capturas e metadados ficam separados das revisões de inspeção em `%LOCALAPPDATA%/Image Inspector/data/dataset/`. Cada foto recebe um `.json` com categoria, operador, serial da câmera e horário. Categorias podem ser alteradas sem apagar as fotos já capturadas; a imagem de referência cria `<categoria>_example.txt` na pasta da categoria. **Enviar / Exportar** registra as capturas em `export_queue.jsonl` para um sincronizador externo. A lista inicial segue a configuração ABAPA: `mancha`, `rasgo` e `contaminacao`.
+Modelos `.pt` e perfis `.pfs` distribuídos com o pacote podem ficar junto do executável, nas pastas `models/` e `profiles/`. Arquivos importados pelo aplicativo são copiados para as pastas de dados do usuário. Isso permite atualizar modelos e perfis sem recompilar o executável.
 
 ## Problemas com PyInstaller
 
-Se o build falhar com EndUpdateResourceW ou bloqueio de antivirus, veja packaging/PLANOS_EMPACOTAMENTO.md.
-
-
-## Melhorias Operacionais Ativas
-
-A versao atual inclui recursos para operacao mais repetivel:
-
-- cache de modelos YOLO carregados, evitando recarregar `.pt` a cada inspecao;
-- logs persistentes em `logs/system.log` e `logs/errors.log`;
-- configuracao persistente em `config/runtime_settings.json`;
-- registro de operador, camera, serial, perfil `.pfs`, modelos, hashes SHA-256 e thresholds no `metadata.json`;
-- indice diario em `data/inspections/YYYY-MM-DD/index.csv`;
-- botoes de revisao em linguagem operacional, mantendo VP/VN/FP/FN internamente;
-- status basico de camera, perfil e modelos na tela principal.
+Se o build falhar com `EndUpdateResourceW` ou bloqueio de antivírus, consulte [packaging/PLANOS_EMPACOTAMENTO.md](packaging/PLANOS_EMPACOTAMENTO.md).
