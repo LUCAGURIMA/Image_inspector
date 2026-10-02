@@ -31,13 +31,14 @@ class CaptureThread(QThread):
 class InspectionThread(QThread):
     completed = pyqtSignal(object)
     failed = pyqtSignal(str)
+    progress = pyqtSignal(str)
 
     def __init__(
         self,
         service: InspectionService,
         image: np.ndarray,
         mode: str,
-        simple_model: Path | None,
+        simple_models: list[Path],
         detection_model: Path | None,
         classification_model: Path | None,
         confidence: float,
@@ -46,7 +47,7 @@ class InspectionThread(QThread):
         self.service = service
         self.image = image
         self.mode = mode
-        self.simple_model = simple_model
+        self.simple_models = simple_models
         self.detection_model = detection_model
         self.classification_model = classification_model
         self.confidence = confidence
@@ -54,12 +55,18 @@ class InspectionThread(QThread):
     def run(self) -> None:
         try:
             if self.mode == "simple":
-                if self.simple_model is None:
-                    raise ValueError("Selecione um modelo de inspecao.")
-                result = self.service.run_simple(self.image, self.simple_model, self.confidence)
+                if not self.simple_models:
+                    raise ValueError("Selecione ao menos um modelo de inspecao.")
+                result = self.service.run_multiple_simple(
+                    self.image,
+                    self.simple_models,
+                    self.confidence,
+                    lambda name, index, total: self.progress.emit(f"Analisando {name} ({index}/{total})..."),
+                )
             else:
                 if self.detection_model is None or self.classification_model is None:
                     raise ValueError("Selecione modelos de deteccao e classificacao.")
+                self.progress.emit("Analisando produto...")
                 result = self.service.run_hybrid(
                     self.image,
                     self.detection_model,

@@ -1,6 +1,7 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
+import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -36,7 +37,16 @@ class BaslerCamera:
     def is_open(self) -> bool:
         return bool(self._camera and self._camera.IsOpen())
 
-    def connect(self) -> CameraInfo:
+    def enumerate_devices(self) -> list[tuple[str, str]]:
+        try:
+            from pypylon import pylon
+        except Exception as exc:
+            raise BaslerCameraError("pypylon nao esta disponivel nesta venv.") from exc
+        self._pylon = pylon
+        factory = pylon.TlFactory.GetInstance()
+        return [(device.GetModelName(), device.GetSerialNumber()) for device in factory.EnumerateDevices()]
+
+    def connect(self, serial_number: str | None = None) -> CameraInfo:
         try:
             from pypylon import pylon
         except Exception as exc:
@@ -47,11 +57,16 @@ class BaslerCamera:
         devices = factory.EnumerateDevices()
         if not devices:
             raise BaslerCameraError("Nenhuma camera Basler foi encontrada.")
+        if serial_number:
+            selected = next((device for device in devices if device.GetSerialNumber() == serial_number), None)
+            if selected is None:
+                raise BaslerCameraError(f"A camera de serie {serial_number} nao foi encontrada.")
+        elif len(devices) == 1:
+            selected = devices[0]
+        else:
+            raise BaslerCameraError("Mais de uma camera encontrada. Selecione uma na aba Configuracao.")
 
-        if len(devices) > 1:
-            log.warning("Mais de uma camera Basler encontrada; usando a primeira. total=%s", len(devices))
-
-        self._camera = pylon.InstantCamera(factory.CreateDevice(devices[0]))
+        self._camera = pylon.InstantCamera(factory.CreateDevice(selected))
         self._camera.Open()
         self.last_info = self.info()
         log.info("Camera Basler conectada | %s", self.last_info)
@@ -67,6 +82,7 @@ class BaslerCamera:
                 log.info("Camera Basler desconectada")
             finally:
                 self._camera = None
+                self.active_profile = None
 
     def info(self) -> CameraInfo:
         if not self._camera:
@@ -102,12 +118,19 @@ class BaslerCamera:
 
         try:
             image = result.Array
+            # Follow reference implementation: if we receive a 2D Bayer image,
+            # demosaic it to BGR using the BG pattern. If the image already has
+            # 3 channels, assume it's already demosaiced and return as-is.
             if image.ndim == 2:
-                frame = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-            else:
-                frame = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            log.info("Imagem capturada | shape=%s", frame.shape)
-            return frame
+                try:
+                    image = cv2.cvtColor(image, cv2.COLOR_BAYER_BG2BGR)
+                    log.debug("Imagem Bayer convertida (BG2BGR) | shape=%s", image.shape)
+                except cv2.error:
+                    image = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+                    log.debug("Imagem mono convertida para BGR | shape=%s", image.shape)
+
+            log.info("Imagem capturada | shape=%s | dtype=%s | ndim=%s", image.shape, image.dtype, image.ndim)
+            return image
         finally:
             result.Release()
 

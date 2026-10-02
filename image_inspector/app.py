@@ -2,6 +2,7 @@
 
 import sys
 
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QApplication
 
 from image_inspector.core.runtime import setup_logging
@@ -12,8 +13,9 @@ def main() -> int:
     setup_logging()
     app = QApplication(sys.argv)
     app.setApplicationName("Image Inspector")
+    app.setFont(QFont("Segoe UI", 16))
     window = MainWindow()
-    window.show()
+    window.showMaximized()
     return app.exec_()
 
 

@@ -12,6 +12,7 @@ Este projeto e uma versao enxuta do toolkit USSEEWA, voltada para usuario final/
 4. Executar inspecao simples ou hibrida com um clique.
 5. Revisar o resultado visual.
 6. Salvar manualmente como `verdadeiro_positivo`, `verdadeiro_negativo`, `falso_positivo` ou `falso_negativo`.
+7. Usar a aba **Criar dataset** para capturar imagens rotuladas manualmente.
 
 ## Estrutura
 
@@ -88,13 +89,13 @@ Menu Iniciar > Image Inspector
 
 ## Onde colocar modelos e perfis no cliente
 
-Depois de instalado:
+Os modelos `.pt` fornecidos com o pacote podem ficar ao lado do executavel. Modelos importados pelo aplicativo sao guardados na pasta de dados do usuario:
 
 ```text
-C:\Program Files\Image Inspector\models\inspection\       # .pt para inspecao simples
-C:\Program Files\Image Inspector\models\detection\         # .pt de deteccao hibrida
-C:\Program Files\Image Inspector\models\classification\    # .pt de classificacao hibrida
-C:\Program Files\Image Inspector\profiles\                 # .pfs Basler
+%LOCALAPPDATA%\Image Inspector\models\inspection\       # .pt importados para inspecao
+%LOCALAPPDATA%\Image Inspector\models\detection\         # .pt de deteccao hibrida
+%LOCALAPPDATA%\Image Inspector\models\classification\    # .pt de classificacao hibrida
+%LOCALAPPDATA%\Image Inspector\profiles\                 # .pfs Basler adicionados pelo usuario
 ```
 
 ## Organizacao dos Dados
@@ -102,10 +103,17 @@ C:\Program Files\Image Inspector\profiles\                 # .pfs Basler
 Cada revisao manual cria uma pasta em:
 
 ```text
-data/inspections/YYYY-MM-DD/<classe_de_revisao>/HHMMSS_microsegundos/
+%LOCALAPPDATA%/Image Inspector/data/inspections/YYYY-MM-DD/<classe_de_revisao>/HHMMSS_microsegundos/
 ```
 
-Dentro dela ficam `original.jpg`, `annotated.jpg` e `metadata.json`.
+Dentro dela ficam a foto original, uma anotacao por categoria de modelo selecionada e `metadata.json`.
+Na tela de revisao, o operador informa se existe defeito; o aplicativo calcula automaticamente verdadeiro positivo, verdadeiro negativo, falso positivo ou falso negativo a partir do resultado dos modelos.
+
+No Windows, imagens, configuracoes e logs ficam em `%LOCALAPPDATA%\Image Inspector\`, uma pasta gravavel pelo usuario mesmo quando o aplicativo esta instalado em `C:\Program Files`.
+Modelos e perfis distribuidos ao lado do executavel continuam disponiveis como leitura. A categoria confirmada e registrada nos nomes dos arquivos, no `metadata.json` e no indice diario; a foto e guardada uma unica vez.
+As imagens de referencia ficam em `%LOCALAPPDATA%\Image Inspector\models\inspection\<categoria>\reference.png`.
+
+Na aba **Criar dataset**, o operador seleciona uma categoria, acompanha a câmera ao vivo e captura imagens rotuladas sem executar inferência. Categorias, referências, capturas e metadados ficam separados das revisões de inspeção em `%LOCALAPPDATA%/Image Inspector/data/dataset/`. Cada foto recebe um `.json` com categoria, operador, serial da câmera e horário. Categorias podem ser alteradas sem apagar as fotos já capturadas; a imagem de referência cria `<categoria>_example.txt` na pasta da categoria. **Enviar / Exportar** registra as capturas em `export_queue.jsonl` para um sincronizador externo. A lista inicial segue a configuração ABAPA: `mancha`, `rasgo` e `contaminacao`.
 
 ## Problemas com PyInstaller
 

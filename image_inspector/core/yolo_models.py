@@ -149,6 +149,26 @@ def file_sha256(path: Path, chunk_size: int = 1024 * 1024) -> str:
 
 
 def list_models(folder: Path) -> list[Path]:
-    if not folder.exists():
-        return []
-    return sorted(folder.glob("*.pt"))
+    from image_inspector.config import PROJECT_ROOT, USER_DATA_DIR
+
+    models = {path.name: path for path in folder.glob("*.pt")} if folder.exists() else {}
+    # Keep models shipped beside the application visible while user imports live
+    # in the writable per-user data directory.
+    if folder.is_relative_to(USER_DATA_DIR):
+        bundled_folder = PROJECT_ROOT / "models" / folder.relative_to(USER_DATA_DIR)
+        if bundled_folder.exists():
+            for path in bundled_folder.glob("*.pt"):
+                models.setdefault(path.name, path)
+    return sorted(models.values(), key=lambda path: path.name.lower())
+
+
+def list_profiles(folder: Path) -> list[Path]:
+    from image_inspector.config import PROJECT_ROOT, USER_DATA_DIR
+
+    profiles = {path.name: path for path in folder.glob("*.pfs")} if folder.exists() else {}
+    if folder.is_relative_to(USER_DATA_DIR):
+        bundled_folder = PROJECT_ROOT / "profiles"
+        if bundled_folder.exists():
+            for path in bundled_folder.glob("*.pfs"):
+                profiles.setdefault(path.name, path)
+    return sorted(profiles.values(), key=lambda path: path.name.lower())

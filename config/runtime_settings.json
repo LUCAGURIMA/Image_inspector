@@ -1,9 +1,10 @@
 {
   "operator_name": "",
-  "mode": "hybrid",
+  "mode": "simple",
   "simple_model": "",
+  "simple_models": [],
   "detection_model": "",
   "classification_model": "",
-  "confidence": 0.5,
-  "profile": ""
+  "confidence": 0.8999999999999999,
+  "profile": "acA4024-8gc_24480103.pfs"
 }

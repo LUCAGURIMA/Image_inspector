@@ -2,11 +2,11 @@
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from image_inspector.config import LOGS_DIR, SETTINGS_PATH, ensure_project_dirs
+from image_inspector.config import LOGS_DIR, PROJECT_ROOT, SETTINGS_PATH, ensure_project_dirs
 
 
 @dataclass
@@ -14,10 +14,17 @@ class RuntimeSettings:
     operator_name: str = ""
     mode: str = "simple"
     simple_model: str = ""
+    simple_models: list[str] = field(default_factory=list)
     detection_model: str = ""
     classification_model: str = ""
     confidence: float = 0.55
     profile: str = ""
+    camera_serial: str = ""
+    ui_zoom: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not self.simple_models:
+            self.simple_models = [self.simple_model] if self.simple_model else []
 
 
 class SettingsStore:
@@ -25,10 +32,14 @@ class SettingsStore:
         self.path = path
 
     def load(self) -> RuntimeSettings:
-        if not self.path.exists():
+        source = self.path
+        legacy = PROJECT_ROOT / "config" / "runtime_settings.json"
+        if not source.exists() and legacy.exists():
+            source = legacy
+        if not source.exists():
             return RuntimeSettings()
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(source.read_text(encoding="utf-8"))
             allowed = RuntimeSettings.__dataclass_fields__.keys()
             return RuntimeSettings(**{key: data.get(key) for key in allowed if key in data})
         except Exception:

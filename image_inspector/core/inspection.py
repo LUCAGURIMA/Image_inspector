@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 import cv2
@@ -22,6 +22,7 @@ class InspectionResult:
     payload: dict[str, Any]
     inspection_id: str = field(default_factory=lambda: uuid4().hex)
     inference_ms: float = 0.0
+    category_images: dict[str, np.ndarray] = field(default_factory=dict, repr=False)
 
 
 class InspectionService:
@@ -46,6 +47,42 @@ class InspectionService:
                 "thresholds": {"inspection": confidence},
                 "models": {"inspection": _prediction_model_info(prediction)},
                 "prediction": _prediction_payload(prediction),
+            },
+        )
+
+    def run_multiple_simple(
+        self,
+        image: np.ndarray,
+        model_paths: list[Path],
+        confidence: float,
+        progress_callback: Callable[[str, int, int], None] | None = None,
+    ) -> InspectionResult:
+        """Run every selected inspection category against the same source image."""
+        if not model_paths:
+            raise ValueError("Selecione ao menos um modelo de inspecao.")
+        start = perf_counter()
+        results = []
+        for index, path in enumerate(model_paths, start=1):
+            if progress_callback:
+                progress_callback(path.stem, index, len(model_paths))
+            results.append(self.run_simple(image, path, confidence))
+        elapsed_ms = (perf_counter() - start) * 1000
+        annotated = results[0].annotated_image
+        failed = any(result.status == "reprovado" for result in results)
+        status = "reprovado" if failed else "aprovado"
+        summary_parts = [f"{Path(path).stem}: {result.summary}" for path, result in zip(model_paths, results)]
+        return InspectionResult(
+            mode="simple_multi",
+            original_image=image,
+            annotated_image=annotated,
+            summary=f"{status.upper()} | {len(results)} categoria(s)\n" + "\n".join(summary_parts),
+            status=status,
+            inference_ms=elapsed_ms,
+            category_images={Path(path).stem: result.annotated_image for path, result in zip(model_paths, results)},
+            payload={
+                "thresholds": {"inspection": confidence},
+                "models": {"inspection": [result.payload["models"]["inspection"] for result in results]},
+                "predictions": [result.payload["prediction"] for result in results],
             },
         )
 
